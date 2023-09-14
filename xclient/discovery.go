@@ -22,36 +22,27 @@ type Discovery interface {
 	GetAll() ([]string, error)
 }
 
-type MultiServerDiscovery struct {
+var _ Discovery = (*MultiServersDiscovery)(nil)
+
+type MultiServersDiscovery struct {
 	r       *rand.Rand
 	mu      sync.RWMutex
 	servers []string
 	index   int
 }
 
-func NewMultiServerDiscovery(servers []string) *MultiServerDiscovery {
-	d := &MultiServerDiscovery{
-		r: rand.New(rand.NewSource(time.Now().UnixNano())),
-		servers: servers,
-	}
-	d.index = d.r.Intn(math.MaxInt32 - 1)
-	return d
-}
-
-var _ Discovery = (*MultiServerDiscovery)(nil)
-
-func (d *MultiServerDiscovery) Refresh() error {
+func (d *MultiServersDiscovery) Refresh() error {
 	return nil
 }
 
-func (d *MultiServerDiscovery) Update(server []string) error {
+func (d *MultiServersDiscovery) Update(server []string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.servers = server
 	return nil
 }
 
-func (d *MultiServerDiscovery) Get(mode SelectMode) (string, error) {
+func (d *MultiServersDiscovery) Get(mode SelectMode) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	n := len(d.servers)
@@ -62,7 +53,7 @@ func (d *MultiServerDiscovery) Get(mode SelectMode) (string, error) {
 	case RandomSelect:
 		return d.servers[d.r.Intn(n)], nil
 	case RoundRobinSelect:
-		s := d.servers[(d.index) % n]
+		s := d.servers[(d.index)%n]
 		d.index = (d.index + 1) % n
 		return s, nil
 	default:
@@ -70,11 +61,20 @@ func (d *MultiServerDiscovery) Get(mode SelectMode) (string, error) {
 	}
 }
 
-func (d *MultiServerDiscovery) GetAll() ([]string, error) {
+func (d *MultiServersDiscovery) GetAll() ([]string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	servers := make([]string, len(d.servers))
 	copy(servers, d.servers)
 	return d.servers, nil
+}
+
+func NewMultiServersDiscovery(servers []string) *MultiServersDiscovery {
+	d := &MultiServersDiscovery{
+		r:       rand.New(rand.NewSource(time.Now().UnixNano())),
+		servers: servers,
+	}
+	d.index = d.r.Intn(math.MaxInt32 - 1)
+	return d
 }
