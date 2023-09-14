@@ -12,14 +12,14 @@ import (
 
 type Foo int
 
-type Args struct{Num1, Num2 int}
+type Args struct{ Num1, Num2 int }
 
-func (foo Foo) Sum(args Args, reply *int) error {
+func (f Foo) Sum(args Args, reply *int) error {
 	*reply = args.Num1 + args.Num2
 	return nil
 }
 
-func (foo Foo) Sleep(args Args, reply *int) error {
+func (f Foo) Sleep(args Args, reply *int) error {
 	time.Sleep(time.Second * time.Duration(args.Num1))
 	*reply = args.Num1 + args.Num2
 	return nil
@@ -27,7 +27,7 @@ func (foo Foo) Sleep(args Args, reply *int) error {
 
 func startServer(addrCh chan string) {
 	var foo Foo
-	l, _ := net.Listen("tcp", ":9091")
+	l, _ := net.Listen("tcp", ":9080")
 	server := geerpc.NewServer()
 	_ = server.Register(&foo)
 	addrCh <- l.Addr().String()
@@ -53,13 +53,14 @@ func foo(xc *xclient.XClient, ctx context.Context, typ, serviceMethod string, ar
 func call(addr1, addr2 string) {
 	d := xclient.NewMultiServerDiscovery([]string{"tcp@" + addr1, "tcp@" + addr2})
 	xc := xclient.NewXClient(d, xclient.RandomSelect, nil)
-	defer func() {_ = xc.Close()}()
+	defer func() { _ = xc.Close() }()
+	// send request & receive response
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			foo(xc, context.Background(), "call", "Foo.Sum", &Args{Num1: i, Num2: i*i})
+			foo(xc, context.Background(), "call", "Foo.Sum", &Args{Num1: i, Num2: i * i})
 		}(i)
 	}
 	wg.Wait()
@@ -68,15 +69,16 @@ func call(addr1, addr2 string) {
 func broadcast(addr1, addr2 string) {
 	d := xclient.NewMultiServerDiscovery([]string{"tcp@" + addr1, "tcp@" + addr2})
 	xc := xclient.NewXClient(d, xclient.RandomSelect, nil)
-	defer func() {_ = xc.Close()}()
+	defer func() { _ = xc.Close() }()
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			foo(xc, context.Background(), "broadcast", "Foo.Sum", &Args{Num1: i, Num2: i*i})
+			foo(xc, context.Background(), "broadcast", "Foo.Sum", &Args{Num1: i, Num2: i * i})
+			// expect 2 - 5 timeout
 			ctx, _ := context.WithTimeout(context.Background(), time.Second*2)
-			foo(xc, ctx, "broadcast", "Foo.Sleep", &Args{Num1: i, Num2: i*i})
+			foo(xc, ctx, "broadcast", "Foo.Sleep", &Args{Num1: i, Num2: i * i})
 		}(i)
 	}
 	wg.Wait()
