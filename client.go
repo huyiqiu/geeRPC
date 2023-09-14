@@ -1,3 +1,4 @@
+//nolint:revive
 package geerpc
 
 import (
@@ -235,7 +236,7 @@ func XDial(rpcAddr string, opts ...*Option) (*Client, error) {
 	case "http":
 		return DialHTTP("tcp", addr, opts...)
 	default:
-		return Dial("tcp", addr, opts...)
+		return Dial(protocal, addr, opts...)
 	}
 }
 
